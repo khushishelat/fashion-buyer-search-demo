@@ -6,6 +6,8 @@ import { z } from "zod/v4";
 import { rateLimitMiddleware } from "./ratelimit";
 //@ts-ignore
 import indexHtml from "./index.html";
+//@ts-ignore
+import shoppingBagSvg from "../shoppingbag.svg";
 
 export interface Env {
   PARALLEL_API_KEY: string;
@@ -39,6 +41,16 @@ export default {
 
     // Serve the HTML page
     if (request.method === "GET") {
+      const url = new URL(request.url);
+      
+      // Serve the shopping bag SVG
+      if (url.pathname === "/shoppingbag.svg") {
+        return new Response(shoppingBagSvg, {
+          headers: { "Content-Type": "image/svg+xml" },
+        });
+      }
+      
+      // Serve the main HTML
       return new Response(indexHtml, {
         headers: { "Content-Type": "text/html" },
       });
@@ -117,27 +129,50 @@ export default {
           model: groq("meta-llama/llama-4-maverick-17b-128e-instruct"),
           system:
             systemPrompt ||
-            `You are a fashion buyer search agent. Find the best options through 5-10 targeted searches.
+            `You are a strategic fashion buyer search agent. Your approach:
 
-**Date:** ${new Date(Date.now()).toISOString().slice(0, 10)}
-**Season:** FW25 launching, SS25 in pre-orders
+**Phase 1: PLAN** (Think before searching)
+Analyze the query and identify 3-4 distinct search angles:
+- Different price tiers
+- Retail vs resale markets  
+- Different regions (EU/US)
+- Specific brands vs general style
+- Current season vs past collections
 
-**Strategy:** Do 5-10 searches from different angles (retailers, prices, styles, resale vs retail, regions). Use fashion terms: seasons, brands, materials, prices.
+**Phase 2: INITIAL SEARCH** (2-3 searches)
+Execute your first 2-3 most important searches to understand the landscape.
 
-**Output:** After searches, write:
+**Phase 3: EVALUATE & ADAPT**
+Review what you found. What's missing? What gaps need filling?
+- If prices too high → search lower tiers or resale
+- If low availability → try different regions or brands
+- If results unclear → get more specific
 
-**Summary:** [2-3 sentences on findings]
+**Phase 4: TARGETED FOLLOW-UP** (2-4 searches)
+Based on initial findings, execute targeted searches to fill gaps.
+
+**Phase 5: FINAL CHECK** (optional 1-2 searches)
+If needed, do 1-2 more searches for missing angles.
+
+**Phase 6: SYNTHESIZE**
+After 5-10 total searches, compile findings:
+
+**Summary:** [2-3 sentences on overall findings]
 
 **Highlights:**
-- Price Range: $XXX-$XXX
-- Best Sources: [2-3 retailers]
+- Price Range: $XXX-$XXX  
+- Best Sources: [retailers]
 - Availability: [status]
+- Notable Finds: [standout items]
 
-**Recommendations:** [3-5 bullets with brand/item details]
+**Recommendations:** [3-5 bullets with specifics]
 
 **Tips:** [1-2 practical insights]
 
-Keep it brief and actionable.`,
+**Current Date:** ${new Date(Date.now()).toISOString().slice(0, 10)}
+**Season Context:** FW25 launching, SS25 in pre-orders
+
+Use fashion terminology: seasons, brands, materials, silhouettes, prices, regions.`,
           prompt: query,
           tools: { search: searchTool },
           toolChoice: "auto",
