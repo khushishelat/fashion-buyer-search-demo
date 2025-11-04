@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    { "source": "/logo.svg", "destination": "/public/logo.svg" },
+    { "source": "/favicon.svg", "destination": "/public/favicon.svg" }
+  ],
+  "functions": {
+    "api/**/*.ts": {
+      "maxDuration": 60
+    }
+  }
+}
+

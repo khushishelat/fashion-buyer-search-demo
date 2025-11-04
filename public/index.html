@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fashion Buyer Search | Parallel</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Import custom fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        .heading-font {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            letter-spacing: -0.03em;
+        }
+
+        /* Light theme colors */
+        body {
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            color: #000000;
+        }
+
+        .text-light-secondary {
+            color: #666666;
+        }
+
+        .text-light-muted {
+            color: #999999;
+        }
+
+        .bg-light-surface {
+            background-color: #ffffff;
+        }
+
+        .border-light {
+            border-color: #e5e5e5;
+        }
+
+        .hover-light-surface:hover {
+            background-color: #fafafa;
+        }
+
+        /* Spinner animation */
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .spinner {
+            border: 2px solid #e5e5e5;
+            border-top-color: #000000;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Smooth transitions */
+        * {
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+        }
+
+        /* Result card hover effects */
+        .result-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .result-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Thinking section styling */
+        .thinking-section {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border-left: 3px solid #3b82f6;
+        }
+
+        /* Excerpt collapse/expand */
+        .excerpt-collapsed {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .excerpt-expanded {
+            max-height: 2000px;
+            transition: max-height 0.5s ease-in;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen">
+    <div id="app" class="container mx-auto px-4 py-8 max-w-5xl">
+        <!-- Header -->
+        <div class="text-center mb-12">
+            <img src="/logo.svg" alt="Fashion Buyer Search"
+                class="mx-auto mb-4 w-16 h-16">
+            <h1 class="heading-font text-4xl font-bold mb-2">Fashion Buyer Search</h1>
+            <p class="text-light-secondary text-base">Intelligent search across retail, resale, and runway sources</p>
+        </div>
+
+        <!-- Search Interface -->
+        <div id="search-interface" class="space-y-6">
+            <div
+                class="relative flex flex-row items-center gap-3 pr-2 bg-light-surface border border-light rounded-lg focus-within:border-neutral-400 transition-all duration-200 hover-light-surface">
+                <input type="text" id="search-input" placeholder="e.g., FW25 shearling coats under $800 from EU designers"
+                    class="w-full px-6 py-5 text-base bg-transparent focus:outline-none text-black placeholder-neutral-400">
+                <button id="search-btn"
+                    class="h-12 px-6 bg-black text-white rounded-lg hover:bg-neutral-800 transition-all duration-200 font-medium text-base">
+                    Search
+                </button>
+            </div>
+
+            <div class="text-center">
+                <p class="text-sm text-light-muted">Try: "vintage Hermès bags under $3000" or "SS25 sustainable dresses EU brands"</p>
+            </div>
+        </div>
+
+        <!-- Results Interface -->
+        <div id="results-interface" class="hidden">
+            <div class="flex items-center justify-between mb-8">
+                <h2 class="text-2xl font-semibold text-black">Results</h2>
+                <button id="new-search-btn"
+                    class="px-4 py-2 bg-black text-white rounded-lg hover:bg-neutral-800 transition-all duration-200 text-sm font-medium">
+                    New Search
+                </button>
+            </div>
+
+            <div id="results-content" class="space-y-6">
+                <!-- Results will be populated here -->
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading-state" class="hidden text-center py-16">
+            <div class="spinner w-9 h-9 mx-auto mb-6"></div>
+            <p class="text-light-secondary text-base font-medium">Searching fashion sources...</p>
+        </div>
+
+        <!-- Footer -->
+        <footer class="mt-20 pt-10 border-t border-light text-center">
+            <div class="text-sm text-light-secondary">
+                <span>Powered by Parallel Search API</span>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        const searchInput = document.getElementById('search-input');
+        const searchBtn = document.getElementById('search-btn');
+        const newSearchBtn = document.getElementById('new-search-btn');
+        const searchInterface = document.getElementById('search-interface');
+        const resultsInterface = document.getElementById('results-interface');
+        const loadingState = document.getElementById('loading-state');
+        const resultsContent = document.getElementById('results-content');
+
+        let currentResultCardIndex = 0;
+
+        searchBtn.addEventListener('click', startResearch);
+        newSearchBtn.addEventListener('click', resetToSearch);
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') startResearch();
+        });
+
+        async function startResearch() {
+            const query = searchInput.value.trim();
+            if (!query) return;
+
+            console.log('🔍 Starting search for:', query);
+
+            // Show loading
+            searchInterface.classList.add('hidden');
+            resultsInterface.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+            resultsContent.innerHTML = '';
+            currentResultCardIndex = 0;
+
+            try {
+                console.log('📡 Calling /api/search...');
+                const response = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query })
+                });
+
+                console.log('📨 Response status:', response.status);
+
+                if (!response.ok) {
+                    // Try to get detailed error message
+                    let errorMessage = `HTTP ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        console.error('❌ Server error:', errorData);
+                        errorMessage = errorData.error || errorMessage;
+                        if (errorData.details) {
+                            errorMessage += '\n' + errorData.details;
+                        }
+                        if (errorData.help) {
+                            errorMessage += '\n' + errorData.help;
+                        }
+                    } catch (e) {
+                        console.error('Could not parse error response');
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                // Hide loading, show results
+                loadingState.classList.add('hidden');
+                resultsInterface.classList.remove('hidden');
+
+                // Stream the response
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                console.log('📡 Starting to read stream...');
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        console.log('✅ Stream complete');
+                        break;
+                    }
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+                        
+                        console.log('📨 Received line:', line.substring(0, 100));
+                        
+                        // AI SDK v5 format: lines start with stream ID (e.g., "0:", "1:", etc.)
+                        const match = line.match(/^(\d+):(.*)/);
+                        if (match) {
+                            try {
+                                const json = match[2];
+                                const chunk = JSON.parse(json);
+                                console.log('📦 Parsed chunk:', chunk.type || chunk);
+                                handleChunk(chunk);
+                            } catch (e) {
+                                console.error('Failed to parse chunk:', line, e);
+                            }
+                        }
+                    }
+                }
+
+            } catch (error) {
+                console.error('Frontend error:', error);
+                loadingState.classList.add('hidden');
+                resultsInterface.classList.remove('hidden');
+                
+                // Try to get detailed error info
+                let errorDetails = error.message;
+                let errorHelp = '';
+                
+                if (error.response) {
+                    try {
+                        const errorData = await error.response.json();
+                        errorDetails = errorData.error || errorDetails;
+                        errorHelp = errorData.details || errorData.help || '';
+                    } catch (e) {
+                        // Could not parse error response
+                    }
+                }
+                
+                resultsContent.innerHTML = `
+                    <div class="bg-red-50 border-2 border-red-200 rounded-lg p-8">
+                        <div class="text-center mb-4">
+                            <span class="text-4xl mb-2 block">⚠️</span>
+                            <p class="text-red-600 text-xl font-bold mb-2">Search Failed</p>
+                            <p class="text-red-700 font-medium mb-4">${escapeHtml(errorDetails)}</p>
+                            ${errorHelp ? `<p class="text-sm text-red-600 mb-4">${escapeHtml(errorHelp)}</p>` : ''}
+                        </div>
+                        <div class="bg-white p-4 rounded border border-red-200 text-sm text-left">
+                            <p class="font-semibold mb-2">🔍 Troubleshooting:</p>
+                            <ol class="list-decimal list-inside space-y-1 text-light-secondary">
+                                <li>Check browser console (F12) for detailed logs</li>
+                                <li>Verify API keys are set in Vercel environment variables</li>
+                                <li>Check Vercel function logs for server-side errors</li>
+                                <li>See QUICK_FIX_500.md for setup instructions</li>
+                            </ol>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function handleChunk(chunk) {
+            console.log('🎯 Handling chunk type:', chunk.type, chunk);
+            
+            if (chunk.type === 'text-delta') {
+                addTextDelta(chunk.textDelta);
+            } else if (chunk.type === 'reasoning-delta') {
+                addReasoningDelta(chunk.textDelta);
+            } else if (chunk.type === 'tool-call') {
+                addToolCall(chunk.toolName, chunk.args);
+            } else if (chunk.type === 'tool-result') {
+                addToolResult(chunk.toolName, chunk.result);
+            } else {
+                console.warn('⚠️ Unknown chunk type:', chunk.type, chunk);
+            }
+        }
+
+        let currentTextBlock = null;
+        let currentThinkingBlock = null;
+
+        function addTextDelta(delta) {
+            if (!currentTextBlock) {
+                currentTextBlock = document.createElement('div');
+                currentTextBlock.className = 'prose max-w-none bg-white p-6 rounded-lg border border-light shadow-sm';
+                currentTextBlock.innerHTML = '<p class="text-black leading-relaxed whitespace-pre-wrap"></p>';
+                resultsContent.appendChild(currentTextBlock);
+            }
+            const p = currentTextBlock.querySelector('p');
+            p.textContent += delta;
+        }
+
+        function addReasoningDelta(delta) {
+            if (!currentThinkingBlock) {
+                currentThinkingBlock = document.createElement('div');
+                currentThinkingBlock.className = 'thinking-section p-6 rounded-lg border border-blue-200 shadow-sm';
+                currentThinkingBlock.innerHTML = `
+                    <div class="flex items-start gap-3">
+                        <span class="text-2xl">🧠</span>
+                        <div class="flex-1">
+                            <p class="font-semibold text-blue-900 mb-2">Thinking...</p>
+                            <p class="text-blue-800 text-sm leading-relaxed whitespace-pre-wrap thinking-content"></p>
+                        </div>
+                    </div>
+                `;
+                resultsContent.appendChild(currentThinkingBlock);
+            }
+            const content = currentThinkingBlock.querySelector('.thinking-content');
+            content.textContent += delta;
+        }
+
+        function addToolCall(toolName, args) {
+            currentTextBlock = null;
+            currentThinkingBlock = null;
+
+            const toolBlock = document.createElement('div');
+            toolBlock.className = 'bg-white p-6 rounded-lg border border-light shadow-sm';
+            toolBlock.innerHTML = `
+                <div class="flex items-start gap-3">
+                    <span class="text-2xl">🔍</span>
+                    <div class="flex-1">
+                        <p class="font-semibold text-black mb-2">Searching: ${escapeHtml(args.query)}</p>
+                        <p class="text-light-secondary text-sm">Search type: ${args.search_type}</p>
+                        <div class="mt-3">
+                            <div class="spinner w-6 h-6"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            resultsContent.appendChild(toolBlock);
+        }
+
+        function addToolResult(toolName, result) {
+            currentTextBlock = null;
+            currentThinkingBlock = null;
+
+            const resultData = typeof result === 'string' ? JSON.parse(result) : result;
+            currentResultCardIndex++;
+
+            const resultBlock = document.createElement('div');
+            resultBlock.className = 'result-card bg-white p-6 rounded-lg border border-light shadow-sm';
+            
+            const resultsCount = resultData.results?.length || 0;
+            const excerptId = `excerpts-${currentResultCardIndex}`;
+            const buttonId = `toggle-${currentResultCardIndex}`;
+
+            resultBlock.innerHTML = `
+                <div class="flex items-start gap-3">
+                    <span class="text-2xl">📊</span>
+                    <div class="flex-1">
+                        <p class="font-semibold text-black mb-4">Search Result #${currentResultCardIndex}</p>
+                        ${resultData.results && resultData.results.length > 0 ? `
+                            <div class="space-y-4">
+                                ${resultData.results.slice(0, 3).map((res, idx) => {
+                                    const domain = extractDomain(res.url);
+                                    const excerpt = res.text ? res.text.substring(0, 200) + '...' : '';
+                                    return `
+                                        <div class="border-l-2 border-neutral-200 pl-4 py-2">
+                                            <div class="flex items-center gap-2 mb-2">
+                                                <span class="text-xs px-2 py-1 bg-neutral-100 text-neutral-700 rounded-full font-medium">${domain}</span>
+                                                <span class="text-xs text-neutral-400">#${idx + 1}</span>
+                                            </div>
+                                            <p class="font-medium text-sm text-black mb-1">${escapeHtml(res.title || 'Untitled')}</p>
+                                            <p class="text-xs text-light-secondary mb-2">${excerpt}</p>
+                                            <a href="${res.url}" target="_blank" rel="noopener noreferrer" 
+                                               class="text-xs text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1">
+                                                Visit → 
+                                            </a>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                            ${resultsCount > 3 ? `
+                                <button id="${buttonId}" class="mt-4 text-sm text-blue-600 hover:text-blue-800 font-medium">
+                                    Show all ${resultsCount} excerpts ▼
+                                </button>
+                                <div id="${excerptId}" class="excerpt-collapsed mt-4 space-y-3">
+                                    ${resultData.results.map((res, idx) => {
+                                        const domain = extractDomain(res.url);
+                                        return `
+                                            <div class="border-l-2 border-neutral-200 pl-4 py-2">
+                                                <div class="flex items-center gap-2 mb-2">
+                                                    <span class="text-xs px-2 py-1 bg-neutral-100 text-neutral-700 rounded-full font-medium">${domain}</span>
+                                                    <span class="text-xs text-neutral-400">#${idx + 1}</span>
+                                                </div>
+                                                <p class="font-medium text-sm text-black mb-1">${escapeHtml(res.title || 'Untitled')}</p>
+                                                <p class="text-xs text-light-secondary mb-2">${escapeHtml(res.text || 'No excerpt available')}</p>
+                                                <a href="${res.url}" target="_blank" rel="noopener noreferrer" 
+                                                   class="text-xs text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1">
+                                                    Visit → 
+                                                </a>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            ` : ''}
+                        ` : `
+                            <p class="text-light-secondary text-sm">No results found for this search.</p>
+                        `}
+                    </div>
+                </div>
+            `;
+
+            resultsContent.appendChild(resultBlock);
+
+            // Attach event listener for toggle button
+            if (resultsCount > 3) {
+                const toggleBtn = document.getElementById(buttonId);
+                const excerptsDiv = document.getElementById(excerptId);
+                toggleBtn.addEventListener('click', () => toggleExcerpts(toggleBtn, excerptsDiv, resultsCount));
+            }
+        }
+
+        function toggleExcerpts(button, excerptsDiv, count) {
+            const isExpanded = excerptsDiv.classList.contains('excerpt-expanded');
+            if (isExpanded) {
+                excerptsDiv.classList.remove('excerpt-expanded');
+                excerptsDiv.classList.add('excerpt-collapsed');
+                button.textContent = `Show all ${count} excerpts ▼`;
+            } else {
+                excerptsDiv.classList.remove('excerpt-collapsed');
+                excerptsDiv.classList.add('excerpt-expanded');
+                button.textContent = `Hide excerpts ▲`;
+            }
+        }
+
+        function extractDomain(url) {
+            try {
+                const hostname = new URL(url).hostname;
+                return hostname.replace('www.', '');
+            } catch {
+                return 'unknown';
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function resetToSearch() {
+            resultsInterface.classList.add('hidden');
+            searchInterface.classList.remove('hidden');
+            searchInput.value = '';
+            searchInput.focus();
+        }
+    </script>
+</body>
+</html>
+
+
