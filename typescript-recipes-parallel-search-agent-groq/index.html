@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fashion Buyer Search | Parallel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        @font-face {
+            font-family: 'FT System Mono';
+            src: url('https://assets.p0web.com/FTSystemMono-Regular.woff2') format('woff2');
+            font-weight: 400;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: 'FT System Mono';
+            src: url('https://assets.p0web.com/FTSystemMono-Medium.woff2') format('woff2');
+            font-weight: 500;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: 'Gerstner Programm';
+            src: url('https://assets.p0web.com/Gerstner-ProgrammRegular.woff2') format('woff2');
+            font-weight: 400;
+            font-display: swap;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: #fcfcfa;
+            color: #1d1b16;
+            line-height: 1.6;
+        }
+
+        .heading-font {
+            font-family: 'Gerstner Programm', serif;
+        }
+
+        .search-result {
+            animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-card {
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .result-card:hover {
+            border-left-color: #1d1b16;
+            transform: translateX(4px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .domain-badge {
+            background: #1d1b16;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            font-family: 'FT System Mono', monospace;
+        }
+
+        .tool-call {
+            background: #f8f8f6;
+            border: 1px solid #e5e3dc;
+            border-left: 3px solid #d8d0bf;
+        }
+
+        .reasoning-section {
+            background: #f8f8f6;
+            border: 1px solid #e5e3dc;
+            border-left: 3px solid #d8d0bf;
+            font-size: 0.875rem;
+        }
+
+        .spinner {
+            border: 2px solid #e5e3dc;
+            border-top: 2px solid #1d1b16;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .typing-indicator {
+            background: #f1f0ec;
+            border: 1px solid #e5e3dc;
+            border-left: 3px solid #9e9589;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .typing-dots {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .typing-dot {
+            width: 0.375rem;
+            height: 0.375rem;
+            background-color: #9e9589;
+            border-radius: 50%;
+            animation: typingAnimation 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typingAnimation {
+
+            0%,
+            60%,
+            100% {
+                transform: translateY(0);
+                opacity: 0.4;
+            }
+
+            30% {
+                transform: translateY(-0.5rem);
+                opacity: 1;
+            }
+        }
+
+        .tool-loading {
+            animation: toolPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes toolPulse {
+
+            0%,
+            100% {
+                opacity: 0.8;
+            }
+
+            50% {
+                opacity: 1;
+                background-color: #f5f4f0;
+            }
+        }
+
+        .markdown-content {
+            line-height: 1.7;
+            color: #1d1b16;
+        }
+
+        .markdown-content ul,
+        .markdown-content ol {
+            margin-bottom: 1em;
+            padding-left: 1.5em;
+        }
+
+        .markdown-content ul {
+            list-style-type: disc;
+        }
+
+        .markdown-content ol {
+            list-style-type: decimal;
+        }
+
+        .markdown-content li {
+            margin-bottom: 0.5em;
+        }
+
+        .markdown-content h1,
+        .markdown-content h2,
+        .markdown-content h3 {
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            font-weight: 600;
+        }
+
+        .markdown-content p {
+            margin-bottom: 1em;
+        }
+
+        .markdown-content strong {
+            font-weight: 600;
+            color: #1d1b16;
+        }
+
+        .markdown-content a {
+            color: #fb631b;
+            text-decoration: underline;
+        }
+
+        .markdown-content a:hover {
+            color: #e55a17;
+        }
+
+        .finish-indicator {
+            background: #f0f8f0;
+            border: 1px solid #d1e7dd;
+            border-left: 3px solid #22c55e;
+        }
+
+        .bg-light-surface {
+            background-color: #f8f8f6;
+        }
+
+        .border-light {
+            border-color: #e5e3dc;
+        }
+
+        .text-light-secondary {
+            color: #6b645a;
+        }
+
+        .text-light-muted {
+            color: #9e9589;
+        }
+
+        .hover-light-surface:hover {
+            background-color: #f1f0ec;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen">
+    <div id="app" class="container mx-auto px-4 py-8 max-w-5xl">
+        <!-- Header -->
+        <div class="text-center mb-12">
+            <img src="https://assets.p0web.com/dark-parallel-symbol-270.svg" alt="Parallel"
+                class="mx-auto mb-4 w-16 h-16">
+            <h1 class="heading-font text-4xl font-bold mb-2">Fashion Buyer Search</h1>
+            <p class="text-light-secondary text-base">Intelligent search across retail, resale, and runway sources</p>
+        </div>
+
+        <!-- Search Interface -->
+        <div id="search-interface" class="space-y-6">
+            <div
+                class="relative flex flex-row items-center gap-3 pr-2 bg-light-surface border border-light rounded-lg focus-within:border-neutral-400 transition-all duration-200 hover-light-surface">
+                <input type="text" id="search-input" placeholder="e.g., FW25 shearling coats under $800 from EU designers"
+                    class="w-full px-6 py-5 text-base bg-transparent focus:outline-none text-black placeholder-neutral-400">
+                <button id="search-btn"
+                    class="h-12 px-6 bg-black text-white rounded-lg hover:bg-neutral-800 transition-all duration-200 font-medium text-base">
+                    Search
+                </button>
+            </div>
+
+            <div class="text-center">
+                <p class="text-sm text-light-muted">Try: "vintage Hermès bags under $3000" or "SS25 sustainable dresses EU brands"</p>
+            </div>
+        </div>
+
+        <!-- Results Interface -->
+        <div id="results-interface" class="hidden">
+            <div class="flex items-center justify-between mb-8">
+                <h2 class="text-2xl font-semibold text-black">Results</h2>
+                <button id="new-search-btn"
+                    class="px-4 py-2 bg-black text-white rounded-lg hover:bg-neutral-800 transition-all duration-200 text-sm font-medium">
+                    New Search
+                </button>
+            </div>
+
+            <div id="results-content" class="space-y-6">
+                <!-- Results will be populated here -->
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading-state" class="hidden text-center py-16">
+            <div class="spinner w-9 h-9 mx-auto mb-6"></div>
+            <p class="text-light-secondary text-base font-medium">Searching fashion sources...</p>
+        </div>
+
+        <!-- Footer -->
+        <footer class="mt-20 pt-10 border-t border-light text-center">
+            <div class="text-sm text-light-secondary">
+                <span>Powered by Parallel Search API</span>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        let abortController = null;
+        let currentMode = 'text';
+
+        // DOM Elements
+        const searchInterface = document.getElementById('search-interface');
+        const resultsInterface = document.getElementById('results-interface');
+        const loadingState = document.getElementById('loading-state');
+        const searchInput = document.getElementById('search-input');
+        const searchBtn = document.getElementById('search-btn');
+        const newSearchBtn = document.getElementById('new-search-btn');
+        const resultsContent = document.getElementById('results-content');
+
+        // Configure marked
+        marked.setOptions({
+            breaks: true,
+            gfm: true
+        });
+
+        // Event Listeners
+        searchBtn.addEventListener('click', startResearch);
+        newSearchBtn.addEventListener('click', showSearchInterface);
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') startResearch();
+        });
+
+        function showSearchInterface() {
+            searchInterface.classList.remove('hidden');
+            resultsInterface.classList.add('hidden');
+            loadingState.classList.add('hidden');
+            resultsContent.innerHTML = '';
+            currentMode = 'text';
+            if (abortController) {
+                abortController.abort();
+                abortController = null;
+            }
+        }
+
+        function showLoadingState() {
+            searchInterface.classList.add('hidden');
+            resultsInterface.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+        }
+
+        function showResults() {
+            searchInterface.classList.add('hidden');
+            resultsInterface.classList.remove('hidden');
+            loadingState.classList.add('hidden');
+        }
+
+        function addLoadingIndicator(type = 'text') {
+            removeLoadingIndicator();
+
+            const loadingElement = document.createElement('div');
+            loadingElement.id = 'active-loading-indicator';
+
+            if (type === 'text') {
+                loadingElement.className = 'typing-indicator p-4 rounded-lg mb-4 search-result';
+                loadingElement.innerHTML = `
+                    <div class="flex items-center text-sm text-light-secondary">
+                        <span class="mr-2">💭 AI is analyzing</span>
+                        <div class="typing-dots">
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                        </div>
+                    </div>
+                `;
+            } else if (type === 'tool') {
+                loadingElement.className = 'typing-indicator p-4 rounded-lg mb-4 search-result';
+                loadingElement.innerHTML = `
+                    <div class="flex items-center text-sm text-light-secondary">
+                        <span class="mr-2">🔍 Searching sources</span>
+                        <div class="typing-dots">
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            resultsContent.appendChild(loadingElement);
+        }
+
+        function removeLoadingIndicator() {
+            const existingIndicator = document.getElementById('active-loading-indicator');
+            if (existingIndicator) {
+                existingIndicator.remove();
+            }
+        }
+
+        async function startResearch() {
+            const query = searchInput.value.trim();
+            if (!query) return;
+
+            showLoadingState();
+            currentMode = 'text';
+
+            if (abortController) {
+                abortController.abort();
+            }
+
+            abortController = new AbortController();
+
+            try {
+                const response = await fetch('/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                    }),
+                    signal: abortController.signal,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const reader = response.body?.getReader();
+                const decoder = new TextDecoder();
+
+                if (!reader) {
+                    throw new Error('No response body');
+                }
+
+                let buffer = '';
+                showResults();
+                addLoadingIndicator('text');
+
+                while (true) {
+                    const { done, value } = await reader.read();
+
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            if (data === '[DONE]') {
+                                removeLoadingIndicator();
+                                return;
+                            }
+
+                            try {
+                                const chunk = JSON.parse(data);
+                                handleStreamChunk(chunk);
+                            } catch (error) {
+                                console.error('Error parsing chunk:', error, data);
+                            }
+                        }
+                    }
+                }
+
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    console.log('Request was aborted');
+                } else {
+                    console.error('Research error:', error);
+                    showError(`Search failed: ${error.message}`);
+                }
+                removeLoadingIndicator();
+            } finally {
+                abortController = null;
+            }
+        }
+
+        function handleStreamChunk(chunk) {
+            switch (chunk.type) {
+                case 'text-delta':
+                    if (currentMode === 'reasoning') {
+                        finalizeCurrentSection();
+                        currentMode = 'text';
+                    }
+                    removeLoadingIndicator();
+                    appendText(chunk.text || '');
+                    break;
+                case 'reasoning-delta':
+                    if (currentMode === 'text') {
+                        finalizeCurrentSection();
+                        currentMode = 'reasoning';
+                    }
+                    removeLoadingIndicator();
+                    appendReasoning(chunk.text || '');
+                    break;
+                case 'tool-call':
+                    finalizeCurrentSection();
+                    removeLoadingIndicator();
+                    addToolCall(chunk);
+                    addLoadingIndicator('tool');
+                    break;
+                case 'tool-result':
+                    removeLoadingIndicator();
+                    addToolResult(chunk);
+                    addLoadingIndicator('text');
+                    break;
+                case 'error':
+                    removeLoadingIndicator();
+                    showError(chunk.error?.message || 'Unknown error occurred');
+                    break;
+                case 'finish':
+                    finalizeCurrentSection();
+                    removeLoadingIndicator();
+                    addFinishIndicator(chunk.finishReason);
+                    break;
+            }
+        }
+
+        function appendText(text) {
+            if (!text) return;
+
+            let currentElement = resultsContent.querySelector('.current-text');
+            if (!currentElement) {
+                currentElement = document.createElement('div');
+                currentElement.className = 'current-text bg-white border border-light rounded-lg p-6 mb-6 search-result shadow-sm';
+
+                const markdownContainer = document.createElement('div');
+                markdownContainer.className = 'markdown-content';
+                currentElement.appendChild(markdownContainer);
+
+                resultsContent.appendChild(currentElement);
+            }
+
+            if (!currentElement.rawText) {
+                currentElement.rawText = '';
+            }
+            currentElement.rawText += text;
+
+            const textContainer = currentElement.querySelector('.markdown-content');
+            if (textContainer) {
+                textContainer.innerHTML = marked.parse(currentElement.rawText);
+            }
+        }
+
+        function appendReasoning(text) {
+            if (!text) return;
+
+            let currentElement = resultsContent.querySelector('.current-reasoning');
+            if (!currentElement) {
+                currentElement = document.createElement('div');
+                currentElement.className = 'current-reasoning reasoning-section p-5 rounded-lg mb-6 search-result';
+
+                const header = document.createElement('div');
+                header.className = 'flex items-center mb-3';
+                header.innerHTML = `
+                    <div class="w-2 h-2 bg-neutral-400 rounded-full mr-2"></div>
+                    <span class="font-medium text-sm text-light-secondary">🧠 Thinking</span>
+                `;
+                currentElement.appendChild(header);
+
+                const markdownContainer = document.createElement('div');
+                markdownContainer.className = 'markdown-content text-sm';
+                currentElement.appendChild(markdownContainer);
+
+                resultsContent.appendChild(currentElement);
+            }
+
+            if (!currentElement.rawText) {
+                currentElement.rawText = '';
+            }
+            currentElement.rawText += text;
+
+            const textContainer = currentElement.querySelector('.markdown-content');
+            if (textContainer) {
+                textContainer.innerHTML = marked.parse(currentElement.rawText);
+            }
+        }
+
+        function finalizeCurrentSection() {
+            const currentTextElement = resultsContent.querySelector('.current-text');
+            if (currentTextElement) {
+                currentTextElement.classList.remove('current-text');
+            }
+
+            const currentReasoningElement = resultsContent.querySelector('.current-reasoning');
+            if (currentReasoningElement) {
+                currentReasoningElement.classList.remove('current-reasoning');
+            }
+        }
+
+        function addToolCall(toolCall) {
+            finalizeCurrentSection();
+
+            const toolCallElement = document.createElement('div');
+            toolCallElement.className = 'tool-call p-5 rounded-lg mb-6 search-result';
+
+            const objective = toolCall.args?.objective || toolCall.input?.objective || 'Searching...';
+
+            toolCallElement.innerHTML = `
+                <div class="flex items-center mb-2">
+                    <div class="w-2 h-2 bg-neutral-400 rounded-full mr-2"></div>
+                    <span class="font-medium text-base">🔍 Search Query</span>
+                </div>
+                <div class="text-sm text-light-secondary">
+                    <strong>Objective:</strong> ${escapeHtml(objective)}
+                </div>
+            `;
+            resultsContent.appendChild(toolCallElement);
+            return toolCallElement;
+        }
+
+        function extractDomain(url) {
+            try {
+                const urlObj = new URL(url);
+                return urlObj.hostname.replace('www.', '');
+            } catch {
+                return url;
+            }
+        }
+
+        function addToolResult(toolResult) {
+            const results = toolResult?.output?.results;
+            if (!results || !Array.isArray(results) || results.length === 0) {
+                return;
+            }
+
+            // Create a grid container for result cards
+            const resultContainer = document.createElement('div');
+            resultContainer.className = 'mb-6 search-result';
+
+            const header = document.createElement('div');
+            header.className = 'flex items-center justify-between mb-4';
+            header.innerHTML = `
+                <div class="flex items-center">
+                    <div class="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                    <span class="font-medium text-base">Found ${results.length} Results</span>
+                </div>
+            `;
+            resultContainer.appendChild(header);
+
+            const cardsContainer = document.createElement('div');
+            cardsContainer.className = 'space-y-3';
+
+            // Display top results as cards
+            results.slice(0, 12).forEach((result, index) => {
+                const domain = extractDomain(result.url);
+                const hasExcerpts = result.excerpts && result.excerpts.length > 0;
+                const firstExcerpt = hasExcerpts ? result.excerpts[0].substring(0, 200) : '';
+                const excerptCount = hasExcerpts ? result.excerpts.length : 0;
+
+                const card = document.createElement('div');
+                card.className = 'result-card bg-white border border-light rounded-lg p-5 hover:shadow-md transition-all';
+                
+                const cardId = `card-${Date.now()}-${index}`;
+                
+                card.innerHTML = `
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="text-lg font-bold text-light-muted">#${index + 1}</span>
+                            <span class="domain-badge">${escapeHtml(domain)}</span>
+                        </div>
+                    </div>
+                    <a href="${escapeHtml(result.url)}" target="_blank" 
+                       class="block font-semibold text-lg text-black hover:text-neutral-700 mb-2 transition-colors">
+                        ${escapeHtml(result.title)}
+                    </a>
+                    ${firstExcerpt ? `
+                        <p class="text-sm text-light-secondary leading-relaxed mb-2">
+                            ${escapeHtml(firstExcerpt)}${firstExcerpt.length >= 200 ? '...' : ''}
+                        </p>
+                    ` : ''}
+                    ${hasExcerpts ? `
+                        <button class="text-xs text-neutral-600 hover:text-black font-medium mb-3 underline" 
+                                onclick="toggleExcerpts('${cardId}')">
+                            ${excerptCount > 1 ? `Show all ${excerptCount} excerpts ▼` : 'Show full excerpt ▼'}
+                        </button>
+                        <div id="${cardId}" class="hidden mt-3 pt-3 border-t border-light">
+                            <div class="text-xs font-medium text-light-secondary mb-2">Full Excerpts:</div>
+                            <div class="space-y-2">
+                                ${result.excerpts.map((excerpt, i) => `
+                                    <div class="text-sm text-black bg-light-surface p-3 rounded border-l-2 border-neutral-300">
+                                        <div class="text-xs text-light-muted mb-1">Excerpt ${i + 1}:</div>
+                                        ${escapeHtml(excerpt)}
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <button class="text-xs text-neutral-600 hover:text-black font-medium mt-2 underline" 
+                                    onclick="toggleExcerpts('${cardId}')">
+                                Hide excerpts ▲
+                            </button>
+                        </div>
+                    ` : ''}
+                    <div class="flex items-center justify-between">
+                        <a href="${escapeHtml(result.url)}" target="_blank" 
+                           class="text-xs text-light-muted hover:text-black transition-colors truncate max-w-md">
+                            ${escapeHtml(result.url)}
+                        </a>
+                        <a href="${escapeHtml(result.url)}" target="_blank" 
+                           class="text-xs font-medium text-black hover:underline whitespace-nowrap ml-4">
+                            Visit →
+                        </a>
+                    </div>
+                `;
+
+                cardsContainer.appendChild(card);
+            });
+
+            resultContainer.appendChild(cardsContainer);
+            resultsContent.appendChild(resultContainer);
+        }
+
+        // Toggle excerpts visibility
+        window.toggleExcerpts = function(cardId) {
+            const excerptDiv = document.getElementById(cardId);
+            if (excerptDiv) {
+                excerptDiv.classList.toggle('hidden');
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function addFinishIndicator(finishReason) {
+            const finishElement = document.createElement('div');
+            finishElement.className = 'finish-indicator p-5 rounded-lg mb-6 search-result';
+
+            const reasonText = finishReason || 'completed';
+            const reasonDisplay = reasonText.charAt(0).toUpperCase() + reasonText.slice(1);
+
+            finishElement.innerHTML = `
+                <div class="flex items-center">
+                    <div class="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                    <span class="font-medium text-base">✅ Search Complete</span>
+                    <span class="ml-2 text-sm text-light-secondary">• ${reasonDisplay}</span>
+                </div>
+            `;
+            resultsContent.appendChild(finishElement);
+        }
+
+        function showError(error) {
+            showResults();
+            finalizeCurrentSection();
+
+            const errorElement = document.createElement('div');
+            errorElement.className = 'bg-red-50 border border-red-200 text-red-800 px-5 py-4 rounded-lg mb-6 search-result';
+            errorElement.innerHTML = `
+                <div class="flex items-center">
+                    <div class="w-2 h-2 bg-red-400 rounded-full mr-3"></div>
+                    <strong>Error:</strong>&nbsp;${escapeHtml(error)}
+                </div>
+            `;
+            resultsContent.appendChild(errorElement);
+        }
+
+        // Initialize
+        showSearchInterface();
+    </script>
+</body>
+
+</html>

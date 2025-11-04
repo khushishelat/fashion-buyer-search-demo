@@ -1,0 +1,195 @@
+/// <reference types="@cloudflare/workers-types" />
+import { Parallel } from "parallel-web";
+import { createGroq } from "@ai-sdk/groq";
+import { streamText, tool, stepCountIs } from "ai";
+import { z } from "zod/v4";
+import { rateLimitMiddleware } from "./ratelimit";
+//@ts-ignore
+import indexHtml from "./index.html";
+
+export interface Env {
+  PARALLEL_API_KEY: string;
+  GROQ_API_KEY: string;
+  RATE_LIMIT_KV: KVNamespace;
+}
+
+function getClientIP(request: Request): string {
+  const cfConnectingIP = request.headers.get("CF-Connecting-IP");
+  if (cfConnectingIP) return cfConnectingIP;
+
+  const xForwardedFor = request.headers.get("X-Forwarded-For");
+  if (xForwardedFor) return xForwardedFor.split(",")[0].trim();
+
+  const xRealIP = request.headers.get("X-Real-IP");
+  if (xRealIP) return xRealIP;
+
+  return "unknown";
+}
+
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    // Ensure required environment variables are present
+    if (!env.PARALLEL_API_KEY || !env.GROQ_API_KEY) {
+      return new Response("Missing required API keys", { status: 500 });
+    }
+
+    if (!env.RATE_LIMIT_KV) {
+      return new Response("Rate limiting service unavailable", { status: 500 });
+    }
+
+    // Serve the HTML page
+    if (request.method === "GET") {
+      return new Response(indexHtml, {
+        headers: { "Content-Type": "text/html" },
+      });
+    }
+
+    // Handle research requests with rate limiting
+    if (request.method === "POST") {
+      // Apply rate limiting - config builder gets access to request
+      const rateLimitResponse = await rateLimitMiddleware(env.RATE_LIMIT_KV, {
+        limits: [
+          {
+            name: "IP hourly",
+            requests: 100,
+            windowMs: 60 * 60 * 1000, // 1 hour
+            limiter: getClientIP(request), // Actual IP address
+          },
+          {
+            name: "Global per minute",
+            requests: 100,
+            windowMs: 60 * 1000, // 1 minute
+            limiter: "global", // Hardcoded global limiter
+          },
+          {
+            name: "Global daily",
+            requests: 10000,
+            windowMs: 24 * 60 * 60 * 1000, // 1 day
+            limiter: "global", // Hardcoded global limiter
+          },
+        ],
+      });
+
+      if (rateLimitResponse) {
+        return rateLimitResponse;
+      }
+
+      try {
+        const { query, systemPrompt } = await request.json<any>();
+        console.log({ query });
+        if (!query) {
+          return new Response("Query is required", { status: 400 });
+        }
+
+        const execute = async ({ objective }) => {
+          const parallel = new Parallel({
+            apiKey: env.PARALLEL_API_KEY,
+          });
+
+          const searchResult = await parallel.beta.search({
+            objective,
+            search_queries: undefined,
+            processor: "base",
+            max_results: 12,
+            max_chars_per_result: 2000,
+          });
+          return searchResult;
+        };
+
+        // Define the search tool
+        const searchTool = tool({
+          description: `Fashion search: Find products across retail, resale, runway. Include: season, price, brand, material, region, style.`,
+          inputSchema: z.object({
+            objective: z
+              .string()
+              .describe("Fashion search goal: season, price, style, brand, region"),
+          }),
+          execute,
+        });
+
+        // Initialize Groq provider
+        const groq = createGroq({
+          apiKey: env.GROQ_API_KEY,
+        });
+
+        // Stream the research process
+        const result = streamText({
+          model: groq("meta-llama/llama-4-maverick-17b-128e-instruct"),
+          system:
+            systemPrompt ||
+            `You are a fashion buyer search agent. Find the best options through 5-10 targeted searches.
+
+**Date:** ${new Date(Date.now()).toISOString().slice(0, 10)}
+**Season:** FW25 launching, SS25 in pre-orders
+
+**Strategy:** Do 5-10 searches from different angles (retailers, prices, styles, resale vs retail, regions). Use fashion terms: seasons, brands, materials, prices.
+
+**Output:** After searches, write:
+
+**Summary:** [2-3 sentences on findings]
+
+**Highlights:**
+- Price Range: $XXX-$XXX
+- Best Sources: [2-3 retailers]
+- Availability: [status]
+
+**Recommendations:** [3-5 bullets with brand/item details]
+
+**Tips:** [1-2 practical insights]
+
+Keep it brief and actionable.`,
+          prompt: query,
+          tools: { search: searchTool },
+          toolChoice: "auto",
+          stopWhen: stepCountIs(50),
+          maxOutputTokens: 8000,
+        });
+
+        // Return the streaming response
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          async start(controller) {
+            try {
+              for await (const chunk of result.fullStream) {
+                const data = `data: ${JSON.stringify(chunk)}\n\n`;
+                controller.enqueue(encoder.encode(data));
+              }
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            } catch (error) {
+              console.error("Stream error:", error);
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({
+                    type: "error",
+                    error: error.message || "Unknown error occurred",
+                  })}\n\n`
+                )
+              );
+            } finally {
+              controller.close();
+            }
+          },
+        });
+
+        return new Response(stream, {
+          headers: {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+          },
+        });
+      } catch (error) {
+        console.error("Research error:", error);
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    return new Response("Not found", { status: 404 });
+  },
+} satisfies ExportedHandler<Env>;
