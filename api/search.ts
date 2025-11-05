@@ -172,12 +172,8 @@ Use fashion terminology: seasons, brands, materials, silhouettes, prices, region
     // Return the streaming response in Vercel AI SDK format
     console.log('📡 [API] Returning stream response...');
     
-    return new Response(result.toDataStream(), {
-      status: 200,
+    return result.toTextStreamResponse({
       headers: {
-        'Content-Type': 'text/event-stream; charset=utf-8',
-        'Cache-Control': 'no-cache, no-transform',
-        'Connection': 'keep-alive',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
