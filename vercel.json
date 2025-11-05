@@ -1,7 +1,9 @@
 {
+  "buildCommand": "echo 'No build needed'",
+  "outputDirectory": "public",
   "rewrites": [
-    { "source": "/logo.svg", "destination": "/public/logo.svg" },
-    { "source": "/favicon.svg", "destination": "/public/favicon.svg" }
+    { "source": "/logo.svg", "destination": "/logo.svg" },
+    { "source": "/favicon.svg", "destination": "/favicon.svg" }
   ],
   "functions": {
     "api/**/*.ts": {
