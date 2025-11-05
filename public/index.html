@@ -238,6 +238,14 @@
 
                 console.log('📡 Starting to read stream...');
 
+                // Create a text container for streaming output
+                let currentTextElement = document.createElement('div');
+                currentTextElement.className = 'bg-white border border-light rounded-lg p-6 mb-6 shadow-sm';
+                const textContent = document.createElement('div');
+                textContent.className = 'prose max-w-none whitespace-pre-wrap';
+                currentTextElement.appendChild(textContent);
+                resultsContent.appendChild(currentTextElement);
+
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) {
@@ -246,27 +254,10 @@
                     }
 
                     buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop() || '';
-
-                    for (const line of lines) {
-                        if (!line.trim()) continue;
-                        
-                        console.log('📨 Received line:', line.substring(0, 100));
-                        
-                        // AI SDK v5 format: lines start with stream ID (e.g., "0:", "1:", etc.)
-                        const match = line.match(/^(\d+):(.*)/);
-                        if (match) {
-                            try {
-                                const json = match[2];
-                                const chunk = JSON.parse(json);
-                                console.log('📦 Parsed chunk:', chunk.type || chunk);
-                                handleChunk(chunk);
-                            } catch (e) {
-                                console.error('Failed to parse chunk:', line, e);
-                            }
-                        }
-                    }
+                    
+                    // Display the text as it streams
+                    textContent.textContent = buffer;
+                    console.log('📨 Received line:', buffer.substring(buffer.length - 100));
                 }
 
             } catch (error) {
