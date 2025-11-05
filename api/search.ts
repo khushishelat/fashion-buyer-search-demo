@@ -1,6 +1,6 @@
 import { Parallel } from "parallel-web";
 import { createGroq } from "@ai-sdk/groq";
-import { streamText, tool, stepCountIs } from "ai";
+import { streamText, tool, stepCountIs, pipeDataStreamToResponse } from "ai";
 import { z } from "zod";
 
 export const config = {
@@ -169,16 +169,26 @@ Use fashion terminology: seasons, brands, materials, silhouettes, prices, region
       maxOutputTokens: 8000,
     });
 
-    // Return the streaming response in Vercel AI SDK format
+    // Return the streaming response with full data stream (includes tool calls and reasoning)
     console.log('📡 [API] Returning stream response...');
     
-    return result.toTextStreamResponse({
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
-    });
+    const response = new Response(
+      result.fullStream
+        .pipeThrough(new TextEncoderStream()),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          'Connection': 'keep-alive',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        },
+      }
+    );
+    
+    return response;
 
   } catch (error: any) {
     console.error('❌ [API] Fatal error:', {

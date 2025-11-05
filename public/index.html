@@ -238,14 +238,6 @@
 
                 console.log('📡 Starting to read stream...');
 
-                // Create a text container for streaming output
-                let currentTextElement = document.createElement('div');
-                currentTextElement.className = 'bg-white border border-light rounded-lg p-6 mb-6 shadow-sm';
-                const textContent = document.createElement('div');
-                textContent.className = 'prose max-w-none whitespace-pre-wrap';
-                currentTextElement.appendChild(textContent);
-                resultsContent.appendChild(currentTextElement);
-
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) {
@@ -254,10 +246,27 @@
                     }
 
                     buffer += decoder.decode(value, { stream: true });
-                    
-                    // Display the text as it streams
-                    textContent.textContent = buffer;
-                    console.log('📨 Received line:', buffer.substring(buffer.length - 100));
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+                        
+                        console.log('📨 Received line:', line.substring(0, 100));
+                        
+                        // AI SDK v5 format: lines start with stream ID (e.g., "0:", "1:", etc.)
+                        const match = line.match(/^(\d+):(.*)/);
+                        if (match) {
+                            try {
+                                const json = match[2];
+                                const chunk = JSON.parse(json);
+                                console.log('📦 Parsed chunk:', chunk.type || chunk);
+                                handleChunk(chunk);
+                            } catch (e) {
+                                console.error('Failed to parse chunk:', line, e);
+                            }
+                        }
+                    }
                 }
 
             } catch (error) {
@@ -309,9 +318,9 @@
             } else if (chunk.type === 'reasoning-delta') {
                 addReasoningDelta(chunk.textDelta);
             } else if (chunk.type === 'tool-call') {
-                addToolCall(chunk.toolName, chunk.args);
+                addToolCall(chunk);
             } else if (chunk.type === 'tool-result') {
-                addToolResult(chunk.toolName, chunk.result);
+                addToolResult(chunk);
             } else {
                 console.warn('⚠️ Unknown chunk type:', chunk.type, chunk);
             }
@@ -350,36 +359,37 @@
             content.textContent += delta;
         }
 
-        function addToolCall(toolName, args) {
+        function addToolCall(chunk) {
             currentTextBlock = null;
             currentThinkingBlock = null;
 
+            const args = chunk.args || {};
+            const objective = args.objective || 'Searching...';
+
             const toolBlock = document.createElement('div');
-            toolBlock.className = 'bg-white p-6 rounded-lg border border-light shadow-sm';
+            toolBlock.className = 'bg-gradient-to-r from-orange-50 to-white p-6 rounded-lg border-l-4 border-orange-500 shadow-sm mb-4';
             toolBlock.innerHTML = `
                 <div class="flex items-start gap-3">
                     <span class="text-2xl">🔍</span>
                     <div class="flex-1">
-                        <p class="font-semibold text-black mb-2">Searching: ${escapeHtml(args.query)}</p>
-                        <p class="text-light-secondary text-sm">Search type: ${args.search_type}</p>
-                        <div class="mt-3">
-                            <div class="spinner w-6 h-6"></div>
-                        </div>
+                        <p class="font-semibold text-black mb-2">Searching Web</p>
+                        <p class="text-sm text-gray-700"><strong>Objective:</strong> ${escapeHtml(objective)}</p>
                     </div>
                 </div>
             `;
             resultsContent.appendChild(toolBlock);
         }
 
-        function addToolResult(toolName, result) {
+        function addToolResult(chunk) {
             currentTextBlock = null;
             currentThinkingBlock = null;
 
+            const result = chunk.result || {};
             const resultData = typeof result === 'string' ? JSON.parse(result) : result;
             currentResultCardIndex++;
 
             const resultBlock = document.createElement('div');
-            resultBlock.className = 'result-card bg-white p-6 rounded-lg border border-light shadow-sm';
+            resultBlock.className = 'result-card bg-white p-6 rounded-lg border border-light shadow-sm mb-4';
             
             const resultsCount = resultData.results?.length || 0;
             const excerptId = `excerpts-${currentResultCardIndex}`;
@@ -387,9 +397,9 @@
 
             resultBlock.innerHTML = `
                 <div class="flex items-start gap-3">
-                    <span class="text-2xl">📊</span>
+                    <span class="text-xl">●</span>
                     <div class="flex-1">
-                        <p class="font-semibold text-black mb-4">Search Result #${currentResultCardIndex}</p>
+                        <p class="font-semibold text-green-700 mb-4">Search Results Found</p>
                         ${resultData.results && resultData.results.length > 0 ? `
                             <div class="space-y-4">
                                 ${resultData.results.slice(0, 3).map((res, idx) => {
